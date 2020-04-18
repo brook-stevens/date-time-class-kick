@@ -5,6 +5,7 @@ plugins {
 	id("io.spring.dependency-management") version "1.0.9.RELEASE"
 	kotlin("jvm") version "1.3.71"
 	kotlin("plugin.spring") version "1.3.71"
+	scala
 }
 
 group = "org.brookstevens"
@@ -24,8 +25,10 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-test") {
 		exclude(group = "org.junit.vintage", module = "junit-vintage-engine")
 	}
+	testImplementation("org.scala-lang:scala-library:2.12.10")
 	testImplementation("io.gatling.highcharts:gatling-charts-highcharts:3.3.1")
 }
+
 
 tasks.withType<Test> {
 	useJUnitPlatform()
@@ -36,4 +39,30 @@ tasks.withType<KotlinCompile> {
 		freeCompilerArgs = listOf("-Xjsr305=strict")
 		jvmTarget = "1.8"
 	}
+}
+
+tasks.create<JavaExec>("testLoad") {
+	description = "Test load the Spring Boot web service with Gatling"
+	group = "Load Test"
+	classpath = sourceSets.test.get().runtimeClasspath
+	jvmArgs = listOf("-Dlogback.configurationFile=${logbackGatlingConfig()}")
+	main = "io.gatling.app.Gatling"
+	args = listOf(
+		"--simulation", "webservice.gatling.simulation.WebServiceCallSimulation",
+		"--results-folder", "${buildDir}/gatling-results",
+		"--binaries-folder", sourceSets.test.get().output.classesDirs.toString()
+	)
+	doFirst {
+		// gatling needs java 8, make it obvious to user to switch
+		if(JavaVersion.current() != JavaVersion.VERSION_1_8){
+			throw GradleException("\n\n\n" +
+					"*********************** \n " +
+					"This build must be run with java 8 \n"+
+					"***********************\n\n\n")
+		}
+	}
+}
+
+fun logbackGatlingConfig(): File {
+	return sourceSets.test.get().resources.find { it.name == "logback-gatling.xml"}!!
 }
