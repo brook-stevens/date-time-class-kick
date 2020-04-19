@@ -17,8 +17,8 @@ class DateTimeWebServiceLoadTestSimulation extends Simulation {
     .exec(http("request_date_time")
       .get("/date-time"))
 
-  setUp(scn.inject(constantUsersPerSec(1200) during (1 minutes))).throttle(
-    reachRps(1200) in (30 seconds),
-    holdFor(1 minute)
+  setUp(scn.inject(constantUsersPerSec(1200) during (5 minutes))).throttle(
+    reachRps(1200) in (4 minutes),
+    holdFor(5 minute)
   ).protocols(httpProtocol)
 }
