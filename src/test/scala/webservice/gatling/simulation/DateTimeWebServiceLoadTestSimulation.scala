@@ -5,9 +5,13 @@ import io.gatling.http.Predef._
 import scala.concurrent.duration._
 
  
-class WebServiceCallSimulation extends Simulation {
+class DateTimeWebServiceLoadTestSimulation extends Simulation {
+ val baseUrl = System.getenv("gatling-date-time-base-url")
+ if(baseUrl == null) {
+  throw new NullPointerException("System property gatling-date-time-base-url must be set")
+ }
  val httpProtocol = http
-   .baseUrl("http://localhost:8080")
+   .baseUrl(baseUrl)
 //   .acceptEncodingHeader("gzip, deflate")
 
  val scn = scenario("LoadTest")

@@ -19,6 +19,7 @@ repositories {
 dependencies {
 	implementation("org.springframework.boot:spring-boot-starter")
 	implementation("org.springframework.boot:spring-boot-starter-web")
+	implementation("org.springframework.boot:spring-boot-starter-actuator")
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
 	implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
 	implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
@@ -42,13 +43,20 @@ tasks.withType<KotlinCompile> {
 }
 
 tasks.create<JavaExec>("testLoad") {
+	val baseUrl = if(project.properties["gatling-date-time-base-url"] != null) {
+		project.properties["gatling-date-time-base-url"]
+	} else {
+		"http://localhost:8080"
+	}
+
 	description = "Test load the Spring Boot web service with Gatling"
 	group = "Load Test"
 	classpath = sourceSets.test.get().runtimeClasspath
 	jvmArgs = listOf("-Dlogback.configurationFile=${logbackGatlingConfig()}")
+	environment("gatling-date-time-base-url", baseUrl!!)
 	main = "io.gatling.app.Gatling"
 	args = listOf(
-		"--simulation", "webservice.gatling.simulation.WebServiceCallSimulation",
+		"--simulation", "webservice.gatling.simulation.DateTimeWebServiceLoadTestSimulation",
 		"--results-folder", "${buildDir}/gatling-results",
 		"--binaries-folder", sourceSets.test.get().output.classesDirs.toString()
 	)
@@ -56,9 +64,9 @@ tasks.create<JavaExec>("testLoad") {
 		// gatling needs java 8, make it obvious to user to switch
 		if(JavaVersion.current() != JavaVersion.VERSION_1_8){
 			throw GradleException("\n\n\n" +
-					"*********************** \n " +
+					"********************************** \n " +
 					"This build must be run with java 8 \n"+
-					"***********************\n\n\n")
+					"**********************************\n\n\n")
 		}
 	}
 }

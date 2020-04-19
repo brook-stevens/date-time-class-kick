@@ -1,0 +1,23 @@
+[
+  {
+    "name": "date-time",
+    "image": "748777752662.dkr.ecr.us-east-2.amazonaws.com/date-time:latest",
+    "cpu": 1024,
+    "memory": 2048,
+    "networkMode": "awsvpc",
+    "logConfiguration": {
+      "logDriver": "awslogs",
+      "options": {
+        "awslogs-group": "/ecs/date-time",
+        "awslogs-region": "us-east-2",
+        "awslogs-stream-prefix": "ecs"
+      }
+    },
+    "portMappings": [
+      {
+        "containerPort": 8080,
+        "hostPort": 8080
+      }
+    ]
+  }
+]
