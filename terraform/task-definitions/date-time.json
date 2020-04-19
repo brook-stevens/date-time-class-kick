@@ -2,8 +2,8 @@
   {
     "name": "date-time",
     "image": "748777752662.dkr.ecr.us-east-2.amazonaws.com/date-time:latest",
-    "cpu": 1024,
-    "memory": 2048,
+    "cpu": 256,
+    "memory": 512,
     "networkMode": "awsvpc",
     "logConfiguration": {
       "logDriver": "awslogs",

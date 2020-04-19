@@ -20,12 +20,12 @@ resource "aws_alb_target_group" "date-time" {
 
   health_check {
     healthy_threshold   = "3"
-    interval            = "30"
+    interval            = "60"
     protocol            = "HTTP"
     matcher             = "200"
     timeout             = "3"
     path                = "/actuator/health"
-    unhealthy_threshold = "2"
+    unhealthy_threshold = "5"
   }
 }
 
@@ -45,7 +45,7 @@ resource "aws_ecs_service" "date-time" {
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.date-time.arn
   launch_type     = "FARGATE"
-  desired_count   = 1
+  desired_count   = 2
 
   network_configuration {
     security_groups  = [aws_security_group.task.id]
@@ -67,8 +67,8 @@ resource "aws_ecs_task_definition" "date-time" {
   network_mode             = "awsvpc"
   execution_role_arn       = aws_iam_role.task-execution-role.arn
   requires_compatibilities = ["FARGATE"]
-  cpu                      = 1024
-  memory                   = 2048
+  cpu                      = 256
+  memory                   = 512
   depends_on = [aws_iam_role.task-execution-role]
 }
 
@@ -83,7 +83,96 @@ resource "aws_ecr_repository" "date-time" {
 }
 
 
-# IAM Stuff
+##### Setup autoscaling
+resource "aws_cloudwatch_metric_alarm" "cloud-kick-cpu-up" {
+  alarm_name                = "cloud-kick-cpu-up"
+  comparison_operator       = "GreaterThanOrEqualToThreshold"
+  evaluation_periods        = "1"
+  metric_name               = "CPUUtilization"
+  namespace                 = "AWS/ECS"
+  period                    = "60"
+  statistic                 = "Average"
+  threshold                 = "50"
+  alarm_description         = "Metric to trigger fargate scale up"
+  alarm_actions = [aws_appautoscaling_policy.date-time-up.arn]
+
+  dimensions = {
+    ClusterName = aws_ecs_cluster.main.name
+    ServiceName = aws_ecs_service.date-time.name
+  }
+  depends_on = [aws_appautoscaling_policy.date-time-up]
+}
+
+resource "aws_cloudwatch_metric_alarm" "cloud-kick-cpu-down" {
+  alarm_name                = "cloud-kick-cpu-down"
+  comparison_operator       = "LessThanOrEqualToThreshold"
+  evaluation_periods        = "1"
+  metric_name               = "CPUUtilization"
+  namespace                 = "AWS/ECS"
+  period                    = "60"
+  statistic                 = "Average"
+  threshold                 = "20"
+  alarm_description         = "Metric to trigger fargate scale down"
+  alarm_actions = [aws_appautoscaling_policy.date-time-down.arn]
+
+  dimensions = {
+    ClusterName = aws_ecs_cluster.main.name
+    ServiceName = aws_ecs_service.date-time.name
+  }
+  depends_on = [aws_appautoscaling_policy.date-time-down]
+}
+
+resource "aws_appautoscaling_target" "date-time" {
+  max_capacity       = 6
+  min_capacity       = 2
+  resource_id        = "service/${aws_ecs_cluster.main.name}/${aws_ecs_service.date-time.name}"
+  #TODO not controlled by terraform
+  role_arn           = "arn:aws:iam::748777752662:role/ecsAutoscaleRole"
+  scalable_dimension = "ecs:service:DesiredCount"
+  service_namespace  = "ecs"
+}
+
+#Finally setup the policies
+resource "aws_appautoscaling_policy" "date-time-up" {
+  name               = "date-time-up"
+  policy_type        = "StepScaling"
+  resource_id        = aws_appautoscaling_target.date-time.resource_id
+  scalable_dimension = aws_appautoscaling_target.date-time.scalable_dimension
+  service_namespace  = aws_appautoscaling_target.date-time.service_namespace
+
+  step_scaling_policy_configuration {
+    adjustment_type         = "ChangeInCapacity"
+    cooldown                = 30
+    metric_aggregation_type = "Maximum"
+
+    step_adjustment {
+      metric_interval_lower_bound = 0
+      scaling_adjustment          = 1
+    }
+  }
+}
+
+resource "aws_appautoscaling_policy" "date-time-down" {
+  name               = "date-time-down"
+  policy_type        = "StepScaling"
+  resource_id        = aws_appautoscaling_target.date-time.resource_id
+  scalable_dimension = aws_appautoscaling_target.date-time.scalable_dimension
+  service_namespace  = aws_appautoscaling_target.date-time.service_namespace
+
+  step_scaling_policy_configuration {
+    adjustment_type         = "ChangeInCapacity"
+    cooldown                = 60
+    metric_aggregation_type = "Average"
+
+    step_adjustment {
+      metric_interval_upper_bound = 0
+      scaling_adjustment          = -1
+    }
+  }
+}
+
+
+##### IAM Configuration
 resource "aws_iam_role" "task-execution-role" {
   name = "task-execution-role"
   assume_role_policy = data.aws_iam_policy_document.ecs-task-assume-role.json
