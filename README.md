@@ -1,5 +1,5 @@
 # Simple date-time webservice
-##Service
+## Service
 This is a simple service that returns the date-time in UTC and to the second for time at /date-time.  The service is a spring boot service written in kotlin and may be run locally with:
 * `./gradlew bootRun`
 * Then go to:
